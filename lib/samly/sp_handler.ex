@@ -50,6 +50,7 @@ defmodule Samly.SPHandler do
 
       conn
       |> configure_session(renew: true)
+      |> delete_session("authn_request_id")
       |> put_session("samly_assertion_key", assertion_key)
       |> redirect(302, target_url)
     else
@@ -73,8 +74,9 @@ defmodule Samly.SPHandler do
   end
 
   # IDP-initiated flow auth response
+  @doc false
   @spec validate_authresp(Conn.t(), Assertion.t(), binary) :: :ok | {:error, atom}
-  defp validate_authresp(conn, %{subject: %{in_response_to: ""}}, relay_state) do
+  def validate_authresp(conn, %{subject: %{in_response_to: ""}}, relay_state) do
     idp_data = conn.private[:samly_idp]
 
     if idp_data.allow_idp_initiated_flow do
@@ -92,12 +94,15 @@ defmodule Samly.SPHandler do
     end
   end
 
-  # SP-initiated flow auth response
-  defp validate_authresp(conn, _assertion, relay_state) do
+  # SP-initiated flow auth response. InResponseTo must match the ID of the
+  # AuthnRequest this session sent, otherwise an unsolicited response is
+  # accepted as the answer to it (CVE-2026-53425).
+  def validate_authresp(conn, %{subject: %{in_response_to: in_response_to}}, relay_state) do
     %IdpData{id: idp_id} = conn.private[:samly_idp]
     rs_in_session = get_session(conn, "relay_state")
     idp_id_in_session = get_session(conn, "idp_id")
     url_in_session = get_session(conn, "target_url")
+    request_id_in_session = get_session(conn, "authn_request_id")
 
     cond do
       rs_in_session == nil || rs_in_session != relay_state ->
@@ -105,6 +110,9 @@ defmodule Samly.SPHandler do
 
       idp_id_in_session == nil || idp_id_in_session != idp_id ->
         {:error, :invalid_idp_id}
+
+      request_id_in_session == nil || request_id_in_session != in_response_to ->
+        {:error, :invalid_in_response_to}
 
       url_in_session == nil ->
         {:error, :invalid_target_url}

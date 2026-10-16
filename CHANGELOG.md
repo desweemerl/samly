@@ -1,21 +1,30 @@
 # CHANGELOG
 
+### v1.4.1
+
++   Security: reject replayed SAML assertions (CVE-2026-53424). Accepted assertions are kept in a replay cache until they expire, configurable through `Samly.ReplayCache` (ETS by default).
++   Security: in the SP-initiated flow, reject a response whose `InResponseTo` does not match the ID of the AuthnRequest sent by the session (CVE-2026-53425).
+
 ### v1.4.0
+
 +   remove uri double encoding thanks to @DiaanEngelbrecht
 +   fix esaml initialization thanks to @bopm
 +   check and enforce session expiration (CVE-2024-25718) thanks to @idyll
 
 ### v1.3.0
+
 +   Added dialyzer checks
 +   Changed internal function layout to report errors more granularly
 +   Verified with updates to esaml dependency
 +   Client can refresh the runtime provider config without restarting the app from [bernardd](https://github.com/dropbox/samly/pull/7)
 
 ### v1.2.0
+
 +   Metadata can be specified directly in the IdP config rather than requiring a file
 +   Bumps dependencies
 
 ### v1.1.0
+
 +   Updated minor version due to dependency updates requiring potential language version bumps
 +   Removed Inch CI
 +   Updated dependencies for project

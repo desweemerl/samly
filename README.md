@@ -255,6 +255,32 @@ config :samly, Samly.State,
 |:------------|:-----------|
 | `opts` | _(optional)_ The `:key` is the name of the session key where assertion is stored. Default is `:samly_assertion`. |
 
+#### Replay Cache
+
+`Samly` accepts each SAML assertion only once: every accepted assertion is
+recorded in a replay cache until it expires (its `NotOnOrAfter`), and a
+response carrying an assertion already in the cache is rejected with
+`access_denied {:error, :duplicate}`.
+
+```elixir
+config :samly, Samly.ReplayCache,
+  cache: Samly.ReplayCache.ETS,
+  opts: [table: :my_replay_cache_table]
+```
+
+This configuration is optional. If omitted, `Samly` uses `Samly.ReplayCache.ETS` by default.
+
+| Options | Description |
+|:------------|:-----------|
+| `cache` | _(optional)_ Module implementing the `Samly.ReplayCache.Store` behaviour. Default is `Samly.ReplayCache.ETS`. |
+| `opts` | _(optional)_ For `Samly.ReplayCache.ETS`, the `:table` option is the ETS table name. Default is `samly_replay_cache_table`. |
+
+> `Samly.ReplayCache.ETS` is local to one node. In a clustered deployment,
+> implement `Samly.ReplayCache.Store` on a store shared by every node
+> (database, Redis, ...), otherwise an assertion accepted on one node can be
+> replayed on another. `check_and_put/3` must check and insert atomically,
+> for example with a unique constraint.
+
 ## SAML Assertion
 
 Once authentication is completed successfully, IdP sends a "consume" SAML

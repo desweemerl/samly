@@ -78,6 +78,7 @@ defmodule Samly.AuthHandler do
         |> put_session("relay_state", relay_state)
         |> put_session("idp_id", idp_id)
         |> put_session("target_url", target_url)
+        |> put_session("authn_request_id", Helper.authn_request_id(req_xml_frag))
         |> send_saml_request(
           idp_signin_url,
           idp.use_redirect_for_req,

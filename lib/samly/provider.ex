@@ -22,7 +22,7 @@ defmodule Samly.Provider do
   require Logger
 
   require Samly.Esaml
-  alias Samly.{State}
+  alias Samly.{ReplayCache, State}
 
   @doc false
   def start_link(gs_opts \\ []) do
@@ -35,6 +35,11 @@ defmodule Samly.Provider do
     store_provider = store_env[:store] || Samly.State.ETS
     store_opts = store_env[:opts] || []
     State.init(store_provider, store_opts)
+
+    replay_env = Application.get_env(:samly, Samly.ReplayCache, [])
+    replay_provider = replay_env[:cache] || Samly.ReplayCache.ETS
+    replay_opts = replay_env[:opts] || []
+    ReplayCache.init(replay_provider, replay_opts)
 
     opts = Application.get_env(:samly, Samly.Provider, [])
 

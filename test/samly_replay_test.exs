@@ -34,6 +34,50 @@ defmodule Samly.ReplayTest do
     end
   end
 
+  describe "Samly.ReplayCache.DETS" do
+    setup do
+      table = :"samly_replay_dets_#{System.unique_integer([:positive])}"
+      path = Path.join(System.tmp_dir!(), "#{table}.dets")
+
+      on_exit(fn ->
+        _ = :dets.close(table)
+        File.rm(path)
+      end)
+
+      [table: table, path: path]
+    end
+
+    test "accepts an assertion once", %{table: table, path: path} do
+      assert ^table = Samly.ReplayCache.DETS.init(table: table, file: path)
+      expires_at = DateTime.add(DateTime.utc_now(), 300, :second)
+
+      assert :ok = Samly.ReplayCache.DETS.check_and_put("id1", expires_at, table)
+      assert {:error, :replayed} = Samly.ReplayCache.DETS.check_and_put("id1", expires_at, table)
+      assert :ok = Samly.ReplayCache.DETS.check_and_put("id2", expires_at, table)
+    end
+
+    test "forgets an assertion once it has expired", %{table: table, path: path} do
+      assert ^table = Samly.ReplayCache.DETS.init(table: table, file: path)
+      expired = DateTime.add(DateTime.utc_now(), -1, :second)
+      expires_at = DateTime.add(DateTime.utc_now(), 300, :second)
+
+      assert :ok = Samly.ReplayCache.DETS.check_and_put("id1", expired, table)
+      assert :ok = Samly.ReplayCache.DETS.check_and_put("id1", expires_at, table)
+    end
+
+    test "remembers accepted assertions across a reopen (restart)", %{table: table, path: path} do
+      assert ^table = Samly.ReplayCache.DETS.init(table: table, file: path)
+      expires_at = DateTime.add(DateTime.utc_now(), 300, :second)
+      assert :ok = Samly.ReplayCache.DETS.check_and_put("id1", expires_at, table)
+
+      # Close the table as a clean shutdown would, then reopen as a fresh boot.
+      :ok = :dets.close(table)
+      assert ^table = Samly.ReplayCache.DETS.init(table: table, file: path)
+
+      assert {:error, :replayed} = Samly.ReplayCache.DETS.check_and_put("id1", expires_at, table)
+    end
+  end
+
   describe "Samly.ReplayCache" do
     test "identifies an assertion by its signed content" do
       assertion = assertion_rec(issue_instant: "2026-10-16T10:00:00Z")

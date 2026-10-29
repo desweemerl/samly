@@ -162,7 +162,12 @@ defmodule Samly.ReplayCache.Mnesia do
   defp ensure_table!(table, storage) do
     attrs = [attributes: [:assertion_id, :expires_at], type: :set]
 
-    case :mnesia.create_table(table, [{storage, [node() | Node.list()]} | attrs]) do
+    # Create the copy on this node only; every other node adds its own copy via
+    # ensure_local_copy!/2 when it boots. Replicating onto `Node.list()` at
+    # create time would also place a copy on nodes that are merely connected
+    # right now - e.g. the previous containers still draining during a rolling
+    # deploy - leaving a stale "ghost" replica behind when they stop.
+    case :mnesia.create_table(table, [{storage, [node()]} | attrs]) do
       {:atomic, :ok} ->
         :ok
 

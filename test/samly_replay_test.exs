@@ -78,6 +78,32 @@ defmodule Samly.ReplayTest do
     end
   end
 
+  describe "Samly.ReplayCache.Mnesia (ram_copies, single node)" do
+    setup do
+      table = :"samly_replay_mnesia_#{System.unique_integer([:positive])}"
+      opts = Samly.ReplayCache.Mnesia.init(table: table)
+      on_exit(fn -> :mnesia.delete_table(table) end)
+
+      [opts: opts]
+    end
+
+    test "accepts an assertion once", %{opts: opts} do
+      expires_at = DateTime.add(DateTime.utc_now(), 300, :second)
+
+      assert :ok = Samly.ReplayCache.Mnesia.check_and_put("id1", expires_at, opts)
+      assert {:error, :replayed} = Samly.ReplayCache.Mnesia.check_and_put("id1", expires_at, opts)
+      assert :ok = Samly.ReplayCache.Mnesia.check_and_put("id2", expires_at, opts)
+    end
+
+    test "forgets an assertion once it has expired", %{opts: opts} do
+      expired = DateTime.add(DateTime.utc_now(), -1, :second)
+      expires_at = DateTime.add(DateTime.utc_now(), 300, :second)
+
+      assert :ok = Samly.ReplayCache.Mnesia.check_and_put("id1", expired, opts)
+      assert :ok = Samly.ReplayCache.Mnesia.check_and_put("id1", expires_at, opts)
+    end
+  end
+
   describe "Samly.ReplayCache" do
     test "identifies an assertion by its signed content" do
       assertion = assertion_rec(issue_instant: "2026-10-16T10:00:00Z")
